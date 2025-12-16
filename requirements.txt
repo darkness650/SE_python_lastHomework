@@ -2,3 +2,4 @@ PySide6>=6.7
 opencv-python>=4.10
 numpy>=2.0
 mediapipe>=0.10.18
+gradio==6.1.0
