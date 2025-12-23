@@ -1,3 +1,6 @@
+"""
+模型层 - 基于原有Gradio MVC model
+"""
 from __future__ import annotations
 
 import os
@@ -9,14 +12,14 @@ import numpy as np
 from dance_core.types import PoseLandmarks
 from dance_core.pose_connections import POSE_CONNECTIONS
 
-# 将临时目录设置为项目根目录下的 .temp
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+# 将临时目录设置为项目根目录下的 . temp
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 TEMP_DIR = os.path.join(PROJECT_ROOT, ".temp")
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 
 def save_uploaded(video: Optional[str], name: str) -> Optional[str]:
-    """将上传的文件复制到 项目根目录/.temp 下并返回新路径。"""
+    """将上传的文件复制到 项目根目录/. temp 下并返回新路径。"""
     if not video:
         return None
     basename = os.path.basename(video)
@@ -38,7 +41,7 @@ def _compute_angle_deg(landmarks: PoseLandmarks,
     if not vis_ok:
         return None
     pa = data[a, :2]
-    pb = data[b, :2]
+    pb = data[b, : 2]
     pc = data[c, :2]
     v1 = pa - pb
     v2 = pc - pb
@@ -68,24 +71,24 @@ def _draw_annotations(frame: np.ndarray,
         return (int(landmarks.data[idx, 0] * w), int(landmarks.data[idx, 1] * h))
 
     if landmarks is not None:
-        # 画全身骨架
+        # 画全身骨架 - 使用抗锯齿
         for a, b in POSE_CONNECTIONS:
             try:
                 if landmarks.data[a, 3] >= 0 and landmarks.data[b, 3] >= 0:
-                    cv2.line(vis, to_xy(a), to_xy(b), color_skeleton, 2)
-            except Exception:
-                pass
+                    cv2.line(vis, to_xy(a), to_xy(b), color_skeleton, 3, cv2.LINE_AA)
+            except Exception as e:
+                print(e)
         # 高亮当前三元组关键点与连线
         a, b, c = triplet
         for idx in [a, b, c]:
             if landmarks.data[idx, 3] >= 0:
                 x, y = to_xy(idx)
-                cv2.circle(vis, (x, y), 6, color_pts, -1)
+                cv2.circle(vis, (x, y), 8, color_pts, -1)
         try:
-            cv2.line(vis, to_xy(a), to_xy(b), color_line, thickness)
-            cv2.line(vis, to_xy(b), to_xy(c), color_line, thickness)
-        except Exception:
-            pass
+            cv2.line(vis, to_xy(a), to_xy(b), color_line, thickness + 1, cv2.LINE_AA)
+            cv2.line(vis, to_xy(b), to_xy(c), color_line, thickness + 1, cv2.LINE_AA)
+        except Exception as e:
+            print(e)
 
     # 角度文字：主角度 + 多关节角度（上肢与下肢）
     text_lines = []
@@ -101,9 +104,20 @@ def _draw_annotations(frame: np.ndarray,
         names = ["右臂", "左臂", "右腿", "左腿"]
         for name, tri in zip(names, multi_triplets):
             ang = _compute_angle_deg(landmarks, *tri)
-            text_lines.append(f"{name}:{ang:.1f}°" if ang is not None else f"{name}:N/A")
-    # 绘制文字块
-    y0 = 30
+            text_lines.append(f"{name}:{ang:.1f}°" if ang is not None else f"{name}: N/A")
+
+    # 绘制文字块 - 增加背景和更大字体
+    y0 = 40
+    font_scale = 0.9
     for i, t in enumerate(text_lines):
-        cv2.putText(vis, t, (20, y0 + i * 28), cv2.FONT_HERSHEY_SIMPLEX, 0.8, color_text, 2, cv2.LINE_AA)
+        # 计算文字大小
+        (text_width, text_height), _ = cv2.getTextSize(
+            t, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 2
+        )
+        # 绘制背景
+        cv2.rectangle(vis, (15, y0 + i * 35 - text_height - 5),
+                      (25 + text_width, y0 + i * 35 + 5), (0, 0, 0), -1)
+        # 绘制文字
+        cv2.putText(vis, t, (20, y0 + i * 35), cv2.FONT_HERSHEY_SIMPLEX,
+                    font_scale, color_text, 2, cv2.LINE_AA)
     return vis

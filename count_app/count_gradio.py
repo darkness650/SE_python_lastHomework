@@ -6,7 +6,7 @@ from typing import Optional
 import gradio as gr
 from gradio import themes
 
-from gradio_frontend.mvc.controller import CountController
+from count_app.mvc.controller import CountController
 
 TEMP_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".temp")
 os.makedirs(TEMP_DIR, exist_ok=True)
@@ -31,9 +31,19 @@ video, canvas { background: #ffffff !important; }
 
 def build_ui() -> gr.Blocks:
     controller = CountController()
-    with gr.Blocks(
-        title="动作计数演示（两阶段）",
-    ) as demo:
+    with gr.Blocks(title="动作计数演示（两阶段）") as demo:
+        # 添加配置选项
+        with gr.Row():
+            sample_fps = gr.Slider(
+                minimum=10, maximum=30, value=25, step=5,
+                label="采样帧率 (FPS)",
+                info="更高的帧率提供更流畅的画面"
+            )
+            resolution = gr.Dropdown(
+                choices=["640x480", "1280x720", "1920x1080", "auto"],
+                value="1280x720",
+                label="分辨率设置"
+            )
         gr.Markdown(
             """
             ## 流程
@@ -56,18 +66,24 @@ def build_ui() -> gr.Blocks:
                             ref_clear_btn = gr.Button("清空")
                         ref_info_text = gr.Textbox(label="参考模板信息与进度", interactive=False, lines=6, max_lines=12, show_label=True)
 
-                        def on_start_ref(ref_file: Optional[str]):
+                        def on_start_ref(ref_file: Optional[str], fps: float):
                             if not ref_file:
                                 yield "请先上传参考视频再点击处理。"
                                 return
-                            for r_txt, _ in controller.start_reference(ref_file):
+                            for r_txt, frame in controller.start_reference(ref_file, sample_fps=fps):
                                 yield r_txt
 
                         ref_start_btn.click(
                             fn=on_start_ref,
-                            inputs=[ref_video],
+                            inputs=[ref_video, sample_fps],
                             outputs=[ref_info_text],
                         )
+
+                        # ref_start_btn.click(
+                        #     fn=on_start_ref,
+                        #     inputs=[ref_video],
+                        #     outputs=[ref_info_text],
+                        # )
 
                         def on_clear_ref():
                             return None, ""
