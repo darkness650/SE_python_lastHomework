@@ -51,14 +51,14 @@ pip install -r requirements.txt
 
 舞蹈动作识别
 
-```powershell 
+```powershell
 python -m dance_coach_app
 ```
 
 健身动作计数
 
 ```powershell
-python -m count_gradio
+python -m count_app.main
 ```
 
 
@@ -73,5 +73,9 @@ python -m count_gradio
 ## 结构（视图/业务分离）
 
 - `dance_core/`：纯业务逻辑（姿态检测、参考动作提取、评分）
-- `dance_coach_app/`：Qt 界面与控制器（不写业务算法）
-- `gradio_frontend/`: gradio页面，控制器，与gradio操作相关的某些业务逻辑
+- `dance_coach_app/`：跳舞计分Qt 界面与控制器（不写业务算法）
+- `count_app/`: 动作计数Qt页面 
+
+
+
+
