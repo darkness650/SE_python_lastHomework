@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Optional, Generator, Tuple
+from typing import Optional, Generator
 import cv2
 import numpy as np
 
@@ -31,6 +31,12 @@ class CountController:
         # 记录处理FPS
         self.ref_sample_fps: Optional[float] = None
         self.last_proc_fps: Optional[float] = None
+        # 停止标志（用于摄像头模式手动停止）
+        self._stop: bool = False
+
+    def stop(self) -> None:
+        """请求停止当前评测（主要用于摄像头实时模式）。"""
+        self._stop = True
 
     def start_reference(self, ref_file: Optional[str]) -> Generator[tuple, None, None]:
         """先处理参考视频：校准阈值并构建模板，同时播放参考视频标注预览。"""
@@ -77,7 +83,7 @@ class CountController:
                 pass
 
     def start_template_evaluation(self, eval_file: Optional[str], use_webcam: bool = False, tolerance_deg: float = 10.0, key_actions: Optional[int] = None) -> Generator[tuple, None, None]:
-        """基于参考模板逐帧匹配的评测：每帧各关节角度与模板差均小于容差则推进，模板走完计一次。支持按关键动作数动态前瞻。"""
+        """基于参考模板逐帧匹配的评测：每帧各关节角度与模板差均小于容差则推进，模板走完计一次。支持按关键动作数动态前瞻。摄像头模式将持续运行直至 stop() 被调用。"""
         if self.ref_template is None:
             import numpy as np
             blank = np.zeros((240, 320, 3), dtype=np.uint8)
@@ -85,6 +91,8 @@ class CountController:
             return
         # 保存关键动作数：允许0表示“固定前瞻4帧”；None表示未设置
         self.last_key_actions = key_actions if key_actions is not None else None
+        # 重置停止标志
+        self._stop = False
         eval_path = 0 if use_webcam else save_uploaded(eval_file, "eval")
         # 准备检测器与计数器
         pd = PoseDetector(PoseDetectorConfig())
@@ -108,51 +116,62 @@ class CountController:
         # 初始化总计与最后一帧标注
         total_cnt = 0
         last_ann = None
-        while True:
-            if not cap or not cap.isOpened():
-                break
-            ok, frame = cap.read()
-            if not ok:
-                break
-            lm = pd.detect_landmarks(frame)
-            plm = PoseLandmarks(lm) if lm is not None else None
-            cnt, info = matcher.update(plm)
-            total_cnt = cnt
-            # 取主角度显示（右臂角度）
-            main_angle = None
-            import numpy as np
-            if lm is not None:
-                angs = compute_joint_angles(lm, visibility_threshold=self.min_visible)
-                a0 = float(angs.get("r_elbow", float("nan")))
-                main_angle = a0 if np.isfinite(a0) else None
-            ann = _draw_annotations(frame, plm, (12, 14, 16), main_angle)
-            last_ann = ann
-            # 更新处理FPS
-            frames_done += 1
-            elapsed = time.time() - t0
-            proc_fps = frames_done / elapsed if elapsed > 0 else 0.0
-            self.last_proc_fps = proc_fps
-            # 文本包含FPS
-            txt = f"模板进度: {info.get('idx')}/{info.get('T')} | 已完成: {cnt} | 匹配:{'✓' if info.get('passed') else '×'} | 前瞻跳过:{info.get('skipped')} | 处理FPS:{proc_fps:.1f} | 源FPS:{src_fps:.1f}"
-            yield (txt, ann)
-            # 节流：尽量让处理速度与源播放速度一致（若源FPS可用），否则与当前处理FPS保持稳定
-            target_fps = src_fps if src_fps > 0 else proc_fps
-            if target_fps > 0:
-                # 估算本帧处理耗时，睡眠到目标帧周期
-                frame_period = 1.0 / target_fps
-                spent = time.time() - (t0 + (frames_done - 1) / max(proc_fps, 1e-6))
-                sleep_t = frame_period - max(0.0, spent)
-                if sleep_t > 0:
-                    time.sleep(min(sleep_t, 0.05))
-        # 结束后输出最终总计
-        final_txt = f"处理结束，总计数一共 {total_cnt}"
-        yield (final_txt, last_ann)
         try:
-            if cap:
-                cap.release()
-            pd.close()
-        except Exception:
-            pass
+            while True:
+                # 手动停止优先
+                if self._stop:
+                    break
+                if not cap or not cap.isOpened():
+                    # 摄像头模式下，若暂时不可读，稍作等待继续尝试
+                    if use_webcam:
+                        time.sleep(0.02)
+                        continue
+                    break
+                ok, frame = cap.read()
+                if not ok:
+                    # 摄像头模式下继续尝试读取
+                    if use_webcam:
+                        time.sleep(0.02)
+                        continue
+                    break
+                lm = pd.detect_landmarks(frame)
+                plm = PoseLandmarks(lm) if lm is not None else None
+                cnt, info = matcher.update(plm)
+                total_cnt = cnt
+                # 取主角度显示（右臂角度）
+                main_angle = None
+                import numpy as np
+                if lm is not None:
+                    angs = compute_joint_angles(lm, visibility_threshold=self.min_visible)
+                    a0 = float(angs.get("r_elbow", float("nan")))
+                    main_angle = a0 if np.isfinite(a0) else None
+                ann = _draw_annotations(frame, plm, (12, 14, 16), main_angle)
+                last_ann = ann
+                # 更新处理FPS
+                frames_done += 1
+                elapsed = time.time() - t0
+                proc_fps = frames_done / elapsed if elapsed > 0 else 0.0
+                self.last_proc_fps = proc_fps
+                # 文本包含FPS
+                txt = f"模板进度: {info.get('idx')}/{info.get('T')} | 已完成: {cnt} | 匹配:{'✓' if info.get('passed') else '×'} | 前瞻跳过:{info.get('skipped')} | 处理FPS:{proc_fps:.1f} | 源FPS:{src_fps:.1f}"
+                yield (txt, ann)
+                # 节流：尽量让处理速度与源播放速度一致（若源FPS可用），否则与当前处理FPS保持稳定
+                target_fps = src_fps if src_fps > 0 else proc_fps
+                if target_fps > 0:
+                    frame_period = 1.0 / target_fps
+                    # 避免过长睡眠，保持交互流畅
+                    time.sleep(min(frame_period, 0.05))
+        finally:
+            try:
+                if cap:
+                    cap.release()
+                pd.close()
+            except Exception:
+                pass
+        # 文件模式结束后输出最终总计；摄像头模式仅在手动停止后结束，不再额外输出文案
+        if not use_webcam:
+            final_txt = f"处理结束，总计数一共 {total_cnt}"
+            yield (final_txt, last_ann)
 
     def render_session(self, ref_file: Optional[str], eval_file: Optional[str]) -> str:
         """渲染整段会话视频：评测为主画面，参考画面缩小为画中画；计数采用模板匹配。"""
