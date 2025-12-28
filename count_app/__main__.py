@@ -7,7 +7,7 @@ import os
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QDir
 
-from ui.main_window import MainWindow
+from count_app.ui.main_window import MainWindow
 
 
 def main():

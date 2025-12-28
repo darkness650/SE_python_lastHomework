@@ -12,7 +12,7 @@ from PySide6.QtGui import QPixmap, QFont, QIcon
 from .video_widget import VideoDisplayWidget
 from .control_panel import ControlPanel
 from .stats_panel import StatsPanel
-from  mvc.controller import CountController
+from  ..mvc.controller import CountController
 
 
 class MainWindow(QMainWindow):
@@ -308,7 +308,7 @@ class MainWindow(QMainWindow):
         """加载评测视频"""
         file_path, _ = QFileDialog.getOpenFileName(
             self, "选择评测视频", "",
-            "视频文件 (*. mp4 *. avi *.mov *.mkv);;所有文件 (*)"
+            "视频文件 (*.mp4 *.avi *.mov *.mkv);;所有文件 (*)"
         )
         if file_path:
             self.evaluation_video_path = file_path
