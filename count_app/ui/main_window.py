@@ -1,11 +1,11 @@
 """
-主窗口界面 - 基于原有MVC模式 (修复PySide6信号问题)
+主窗口界面 - 基于原有MVC模式 (修复PySide6信号问题，扩展多标准视频与目标次数)
 """
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                QTabWidget, QLabel, QPushButton, QProgressBar,
                                QTextEdit, QSpinBox, QDoubleSpinBox, QGroupBox,
                                QGridLayout, QSlider, QComboBox, QCheckBox,
-                               QFileDialog, QMessageBox, QSplitter, QFrame)
+                               QFileDialog, QMessageBox, QSplitter, QFrame, QLineEdit)
 from PySide6.QtCore import Qt, QTimer, QThread, Signal  # 修改：使用Signal而不是pyqtSignal
 from PySide6.QtGui import QPixmap, QFont, QIcon
 
@@ -81,7 +81,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(widget)
 
         # 标题说明
-        title_label = QLabel("上传标准视频并生成动作模板")
+        title_label = QLabel("上传标准视频并生成动作模板（可多选）")
         title_label.setFont(QFont("Arial", 12, QFont.Bold))
         layout.addWidget(title_label)
 
@@ -93,7 +93,7 @@ class MainWindow(QMainWindow):
         # 控制按钮
         button_layout = QHBoxLayout()
 
-        self.btn_load_ref = QPushButton("选择标准视频")
+        self.btn_load_ref = QPushButton("选择标准视频（多选）")
         self.btn_load_ref.setMinimumHeight(40)
 
         self.btn_start_ref = QPushButton("开始处理")
@@ -108,6 +108,18 @@ class MainWindow(QMainWindow):
         button_layout.addWidget(self.btn_clear_ref)
 
         layout.addLayout(button_layout)
+
+        # 目标次数输入
+        targets_layout = QHBoxLayout()
+        targets_layout.addWidget(QLabel("每个动作目标次数 (逗号分隔):"))
+        self.targets_edit = QLineEdit()
+        self.targets_edit.setPlaceholderText("例如: 10,8,12")
+        targets_layout.addWidget(self.targets_edit)
+        # 新增：确认按钮
+        self.btn_confirm_targets = QPushButton("确认")
+        self.btn_confirm_targets.setMinimumHeight(30)
+        targets_layout.addWidget(self.btn_confirm_targets)
+        layout.addLayout(targets_layout)
 
         # 处理信息显示
         self.ref_info_text = QTextEdit()
@@ -125,7 +137,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(widget)
 
         # 标题说明
-        title_label = QLabel("基于生成的模板进行动作评测")
+        title_label = QLabel("基于生成的模板进行动作评测（达到目标自动切换）")
         title_label.setFont(QFont("Arial", 12, QFont.Bold))
         layout.addWidget(title_label)
 
@@ -247,6 +259,8 @@ class MainWindow(QMainWindow):
         self.btn_load_ref.clicked.connect(self.load_reference_video)
         self.btn_start_ref.clicked.connect(self.start_reference_processing)
         self.btn_clear_ref.clicked.connect(self.clear_reference)
+        # 新增：确认目标次数
+        self.btn_confirm_targets.clicked.connect(self.confirm_targets_binding)
 
         # 步骤2信号
         self.btn_load_eval.clicked.connect(self.load_evaluation_video)
@@ -258,22 +272,28 @@ class MainWindow(QMainWindow):
         self.use_webcam_cb.toggled.connect(self.on_webcam_toggle)
 
     def load_reference_video(self):
-        """加载标准视频"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择标准视频", "",
+        """加载标准视频（支持多选）"""
+        files, _ = QFileDialog.getOpenFileNames(
+            self, "选择标准视频（可多选）", "",
             "视频文件 (*.mp4 *.avi *.mov *.mkv);;所有文件 (*)"
         )
-        if file_path:
-            self.reference_video_path = file_path
+        if files:
+            self.reference_video_paths = files
             self.btn_start_ref.setEnabled(True)
-            self.add_log(f"已选择标准视频: {file_path}")
-            self.statusBar().showMessage("标准视频已选择，请点击开始处理")
+            self.add_log(f"已选择 {len(files)} 个标准视频")
+            self.statusBar().showMessage("标准视频已选择，请设置目标次数并开始处理")
 
     def start_reference_processing(self):
-        """开始处理标准视频"""
-        if not hasattr(self, 'reference_video_path'):
-            QMessageBox.warning(self, "错误", "请先选择标准视频")
+        """开始处理标准视频（列表）"""
+        if not hasattr(self, 'reference_video_paths') or not self.reference_video_paths:
+            QMessageBox.warning(self, "错误", "请先选择至少一个标准视频")
             return
+
+        # 解析目标次数（可选）
+        targets = self.parse_targets_input()
+        if targets:
+            # 先设置到控制器（长度不匹配将被截断）
+            self.controller.set_action_targets(targets)
 
         # 开始处理
         self.btn_start_ref.setEnabled(False)
@@ -281,7 +301,7 @@ class MainWindow(QMainWindow):
 
         # 创建处理线程
         self.ref_process_thread = ReferenceProcessThread(
-            self.controller, self.reference_video_path
+            self.controller, self.reference_video_paths
         )
         self.ref_process_thread.frame_ready.connect(
             self.ref_video_display.update_frame
@@ -294,12 +314,48 @@ class MainWindow(QMainWindow):
         )
         self.ref_process_thread.start()
 
+    def parse_targets_input(self):
+        """解析逗号分隔的目标次数输入为整数列表"""
+        text = self.targets_edit.text().strip()
+        if not text:
+            return []
+        parts = [p.strip() for p in text.split(',') if p.strip()]
+        vals = []
+        for p in parts:
+            try:
+                vals.append(max(0, int(p)))
+            except Exception:
+                pass
+        return vals
+
+    def confirm_targets_binding(self):
+        """确认并绑定每个动作目标次数到控制器，提供与已选标准视频数量的校验提示。"""
+        targets = self.parse_targets_input()
+        if not targets:
+            QMessageBox.information(self, "提示", "请填写目标次数，例如：10,8,12")
+            return
+        # 绑定到控制器（控制器内部会在模板构建后按模板数量对齐）
+        self.controller.set_action_targets(targets)
+        # 校验数量并提示
+        selected_n = len(getattr(self, 'reference_video_paths', []))
+        if selected_n == 0:
+            self.add_log("已绑定目标次数，但尚未选择标准视频")
+            self.statusBar().showMessage("目标次数已确认（请先选择标准视频）")
+            return
+        if len(targets) != selected_n:
+            self.add_log(f"目标次数数量({len(targets)})与标准视频数({selected_n})不一致，已按较少的一侧对齐")
+            self.statusBar().showMessage("目标次数已确认（数量不一致将截断或忽略多余）")
+        else:
+            self.add_log("目标次数已确认并与每个动作绑定")
+            self.statusBar().showMessage("目标次数已确认")
+
     def clear_reference(self):
         """清空标准视频"""
-        if hasattr(self, 'reference_video_path'):
-            del self.reference_video_path
+        if hasattr(self, 'reference_video_paths'):
+            del self.reference_video_paths
         self.ref_video_display.clear()
         self.ref_info_text.clear()
+        self.targets_edit.clear()
         self.btn_start_ref.setEnabled(False)
         self.add_log("已清空标准视频")
         self.statusBar().showMessage("请选择标准视频")
@@ -340,14 +396,14 @@ class MainWindow(QMainWindow):
 
     def update_eval_button_state(self):
         """更新评测按钮状态"""
-        has_template = self.controller.ref_template is not None
+        has_template = (self.controller.ref_template is not None) or bool(self.controller.ref_templates)
         has_source = (hasattr(self, 'evaluation_video_path') or
                       hasattr(self, 'camera_index'))
         self.btn_start_eval.setEnabled(has_template and has_source)
 
     def start_evaluation(self):
         """开始评测"""
-        if self.controller.ref_template is None:
+        if (self.controller.ref_template is None) and (not self.controller.ref_templates):
             QMessageBox.warning(self, "错误", "请先处理标准视频生成模板")
             return
 
@@ -356,6 +412,11 @@ class MainWindow(QMainWindow):
         key_actions = self.key_actions_spin.value()
         if key_actions == 0:
             key_actions = None
+
+        # 若用户在此时输入/修改了目标次数，再次同步
+        targets = self.parse_targets_input()
+        if targets:
+            self.controller.set_action_targets(targets)
 
         use_webcam = self.use_webcam_cb.isChecked()
         eval_file = None if use_webcam else getattr(self, 'evaluation_video_path', None)
@@ -442,15 +503,15 @@ class ReferenceProcessThread(QThread):
     frame_ready = Signal(object, object, dict)  # 修改：使用Signal
     info_ready = Signal(str)  # 修改：使用Signal
 
-    def __init__(self, controller, video_path):
+    def __init__(self, controller, video_paths):
         super().__init__()
         self.controller = controller
-        self.video_path = video_path
+        self.video_paths = video_paths  # 列表
 
     def run(self):
         """运行处理"""
         try:
-            for info, frame in self.controller.start_reference(self.video_path):
+            for info, frame in self.controller.start_reference(self.video_paths):
                 self.info_ready.emit(info)
                 if frame is not None:
                     self.frame_ready.emit(frame, None, {})
