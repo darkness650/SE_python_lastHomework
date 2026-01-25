@@ -128,7 +128,7 @@ class StatsPanel(QWidget):
                 self.avg_rate_label.setText(f"{avg_rate:.1f} 次/分")
 
     def reset_stats(self):
-        """重置统计"""
+        """重置统计，清零计数"""
         self.count_lcd.display(0)
         self.current_count_label.setText("0")
         self.avg_rate_label.setText("0.0 次/分")

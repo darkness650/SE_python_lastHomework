@@ -9,7 +9,7 @@ import numpy as np
 
 
 class VideoDisplayWidget(QWidget):
-    """高清视频显示组件"""
+    """高清视频显示组件，支持多种图像格式输入"""
 
     def __init__(self):
         super().__init__()
@@ -52,7 +52,7 @@ class VideoDisplayWidget(QWidget):
             self.video_label.setPixmap(scaled_pixmap)
 
     def numpy_to_qpixmap(self, frame: np.ndarray) -> QPixmap:
-        """将numpy数组转换为QPixmap"""
+        """将numpy数组转换为QPixmap，支持多种图像格式"""
         try:
             if len(frame.shape) == 3:
                 height, width, channels = frame.shape

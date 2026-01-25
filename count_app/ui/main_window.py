@@ -499,7 +499,7 @@ class MainWindow(QMainWindow):
 
 
 class ReferenceProcessThread(QThread):
-    """标准视频处理线程"""
+    """标准视频处理线程，支持多视频文件"""
     frame_ready = Signal(object, object, dict)  # 修改：使用Signal
     info_ready = Signal(str)  # 修改：使用Signal
 
@@ -520,7 +520,7 @@ class ReferenceProcessThread(QThread):
 
 
 class EvaluationProcessThread(QThread):
-    """评测处理线程"""
+    """评测处理线程，支持视频文件和摄像头"""
     frame_ready = Signal(object, object, dict)  # 修改：使用Signal
     info_ready = Signal(str)  # 修改：使用Signal
     count_updated = Signal(int, int, float)  # 修改：使用Signal
