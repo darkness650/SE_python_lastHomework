@@ -10,6 +10,9 @@ from PySide6.QtWidgets import (
 )
 
 class VideoCaptureThread(QThread):
+    """
+    用于在独立线程中打开并读取摄像头帧，避免阻塞主界面
+    """
     frame_data = Signal(QImage)
 
     def __init__(self, camera_index=0, parent=None):
@@ -37,6 +40,9 @@ class VideoCaptureThread(QThread):
         self.wait()
 
 class CameraRecorder(QWidget):
+    """
+    基于 PySide6 的简易摄像头录制界面组件，用来管理摄像头采集与视频保存的完整流程
+    """
     def __init__(self):
         super().__init__()
         self.setWindowTitle("摄像头录制 (PySide6)")

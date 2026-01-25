@@ -49,7 +49,8 @@ class CountController:
         self._stop = True
 
     def start_reference(self, ref_file: Optional[str] | List[str]) -> Generator[Tuple[str, np.ndarray], None, None]:
-        """处理参考视频：支持单个或多个。构建模板并播放第一个参考视频的标注预览。
+        """
+        处理参考视频：支持单个或多个。构建模板并播放第一个参考视频的标注预览。
         如果传入列表，则逐个构建模板，并记录至 self.ref_templates 与 self.action_targets（目标次数由UI设置）。
         """
         # 兼容旧接口：字符串或列表

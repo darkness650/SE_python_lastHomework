@@ -11,6 +11,7 @@ from count_app.ui.main_window import MainWindow
 
 
 def main():
+
     app = QApplication(sys.argv)
 
     # 设置应用程序信息
@@ -26,6 +27,7 @@ def main():
     window = MainWindow()
     window.show()
 
+    #返回
     return app.exec()
 
 
