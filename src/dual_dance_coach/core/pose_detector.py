@@ -1,12 +1,30 @@
-import sys
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 
 import cv2
-import numpy as np
 import mediapipe as mp
+import numpy as np
 from mediapipe.tasks import python as mp_tasks
 from mediapipe.tasks.python import vision
+
+MODEL_FILENAME = "pose_landmarker_heavy.task"
+
+
+def _resolve_model_path() -> Path:
+    """依次在当前工作目录、项目根目录、安装后的 site-packages/blob 里查找模型文件。"""
+    candidates = [
+        Path.cwd() / "blob" / MODEL_FILENAME,
+        Path(__file__).resolve().parents[3] / "blob" / MODEL_FILENAME,
+        Path(__file__).resolve().parents[2] / "blob" / MODEL_FILENAME,
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return candidates[0]
+
+
+# mediapipe 模型文件路径
+MODEL_PATH = _resolve_model_path()
 
 
 @dataclass(frozen=True)
@@ -27,20 +45,18 @@ class PoseDetector:
 
         输出: 无（构造器）。
 
-        作用: 延迟导入 mediapipe 并创建内部的 Pose 推理对象，用于后续帧的姿态检测。
+        作用: 导入 mediapipe 并创建内部的 Pose 推理对象，用于后续帧的姿态检测。
         """
         self._config = config or PoseDetectorConfig()
 
-        base_dir = Path(sys.argv[0]).parent
-        model_path = base_dir / "pose_landmarker_heavy.task"
-        if not model_path.exists():
+        if not MODEL_PATH.exists():
             raise RuntimeError(
                 "未找到模型文件："
-                f"{model_path}。请将 pose_landmarker_heavy.task 放在可执行程序或项目根目录下。"
+                f"{MODEL_PATH}。请将 pose_landmarker_heavy.task 放在可执行程序或项目根目录下。"
             )
 
         options = vision.PoseLandmarkerOptions(
-            base_options=mp_tasks.BaseOptions(model_asset_path=str(model_path)),
+            base_options=mp_tasks.BaseOptions(model_asset_path=str(MODEL_PATH)),
             running_mode=vision.RunningMode.IMAGE,
             min_pose_detection_confidence=self._config.min_detection_confidence,
             min_pose_presence_confidence=self._config.min_detection_confidence,

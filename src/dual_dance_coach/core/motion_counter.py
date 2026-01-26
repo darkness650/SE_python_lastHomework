@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List, Optional
 
 import cv2
 import numpy as np
@@ -9,7 +8,7 @@ from dual_dance_coach.core.scoring import compute_joint_angles
 from dual_dance_coach.core.types import PoseLandmarks
 
 # 统一的角度键顺序（与 scoring.compute_joint_angles 对齐）
-ANGLE_KEYS_ORDER: List[str] = [
+ANGLE_KEYS_ORDER: list[str] = [
     "l_elbow",
     "r_elbow",
     "l_shoulder",
@@ -23,7 +22,7 @@ ANGLE_KEYS_ORDER: List[str] = [
 
 @dataclass
 class AngleTemplate:
-    keys: List[str]
+    keys: list[str]
     angles: np.ndarray  # (T, K)
     valid: np.ndarray  # (T, K) bool
 
@@ -32,7 +31,7 @@ class AngleTemplate:
         ref_path: str,
         sample_fps: float = 10.0,
         visibility_th: float = 0.5,
-        keys: Optional[List[str]] = None,
+        keys: list[str] | None = None,
     ) -> "AngleTemplate":
         keys_used = keys or ANGLE_KEYS_ORDER
         cap = cv2.VideoCapture(ref_path)
@@ -92,8 +91,8 @@ class TemplateRepetitionCounter:
     def __init__(
         self,
         template: AngleTemplate,
-        config: Optional[TemplateMatcherConfig] = None,
-        key_actions: Optional[int] = None,
+        config: TemplateMatcherConfig | None = None,
+        key_actions: int | None = None,
     ) -> None:
         self.template = template
         self.cfg = config or TemplateMatcherConfig()
@@ -123,7 +122,7 @@ class TemplateRepetitionCounter:
         dist = (center_idx - self.idx) % self.T
         return int(max(0, dist))
 
-    def update(self, lm: Optional[PoseLandmarks]) -> tuple[int, dict]:
+    def update(self, lm: PoseLandmarks | None) -> tuple[int, dict]:
         info = {"idx": self.idx, "T": self.T, "passed": False, "diffs": None, "skipped": 0}
         if lm is None:
             return self.count, info
@@ -134,7 +133,7 @@ class TemplateRepetitionCounter:
         )
 
         # 尝试匹配 当前模板帧 -> 向后若干帧（支持环形前瞻）
-        def match_at(t_idx: int) -> tuple[bool, Optional[np.ndarray]]:
+        def match_at(t_idx: int) -> tuple[bool, np.ndarray | None]:
             ref_idx = t_idx % self.T
             ref_vec = self.template.angles[ref_idx]
             ref_valid = self.template.valid[ref_idx]

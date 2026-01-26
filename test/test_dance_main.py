@@ -1,11 +1,10 @@
 import os
 import sys
 
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 from qt_material import apply_stylesheet
 
-from dual_dance_coach.view.dance.ui.main_window import MainWindow
+from dual_dance_coach.view.dance.main_window import MainWindow
 
 
 def main() -> int:

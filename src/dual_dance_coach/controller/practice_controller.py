@@ -18,7 +18,7 @@ from dual_dance_coach.core.reference_extractor import (
 from dual_dance_coach.core.scoring import compare_angles
 from dual_dance_coach.core.types import PoseFrame
 
-from dual_dance_coach.view.dance.controller.view_protocol import PracticeView
+from dual_dance_coach.controller.view_protocol import PracticeView
 
 
 def _bgr_to_qpixmap(frame_bgr: np.ndarray, max_w: int, max_h: int) -> QPixmap:

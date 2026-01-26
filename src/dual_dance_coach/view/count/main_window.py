@@ -1,10 +1,7 @@
 """主窗口界面"""
 
 from PySide6.QtCore import QThread, Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
     QDoubleSpinBox,
     QFileDialog,
     QFrame,
@@ -16,15 +13,16 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QRadioButton,
     QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
-from dual_dance_coach.view.count.mvc.controller import CountController
-from dual_dance_coach.view.count.ui.stats_panel import StatsPanel
-from dual_dance_coach.view.count.ui.video_widget import VideoDisplayWidget
+from dual_dance_coach.controller.count_controller import CountController
+from dual_dance_coach.view.count.stats_panel import StatsPanel
+from dual_dance_coach.view.count.video_widget import VideoDisplayWidget
 
 
 class MainWindow(QMainWindow):
@@ -32,13 +30,14 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.controller = CountController()
         self.current_process = None
+        self._eval_running = False
         self.setup_ui()
         self.connect_signals()
 
     def setup_ui(self):
         """设置用户界面"""
         self.setWindowTitle("动作计数分析器")
-        self.setGeometry(100, 100, 1600, 1000)
+        self.resize(1920, 1080)
 
         # 创建中央部件
         central_widget = QWidget()
@@ -46,6 +45,8 @@ class MainWindow(QMainWindow):
 
         # 主布局
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(6, 6, 6, 6)
+        main_layout.setSpacing(6)
 
         # 创建工作流程区域
         workflow_widget = self.create_workflow_area()
@@ -56,11 +57,10 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(bottom_widget)
 
         # 设置比例
-        main_layout.setStretch(0, 4)  # 工作流程区域
+        main_layout.setStretch(0, 5)  # 工作流程区域
         main_layout.setStretch(1, 1)  # 底部控制面板
 
-        # 创建状态栏
-        self.statusBar().showMessage("准备就绪 - 请先上传标准视频")
+        self.add_log("准备就绪 - 请先上传标准视频")
 
     def create_workflow_area(self) -> QWidget:
         """创建工作流程区域"""
@@ -89,13 +89,9 @@ class MainWindow(QMainWindow):
 
     def create_step1_widget(self) -> QWidget:
         """创建步骤1：标准视频处理"""
-        widget = QGroupBox("步骤1：标准视频处理")
+        widget = QGroupBox("步骤1：标准视频并生成动作模板(可多选)")
         layout = QVBoxLayout(widget)
-
-        # 标题说明
-        title_label = QLabel("上传标准视频并生成动作模板（可多选）")
-        title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        layout.addWidget(title_label)
+        layout.setSpacing(6)
 
         # 视频显示区域
         self.ref_video_display = VideoDisplayWidget()
@@ -105,7 +101,7 @@ class MainWindow(QMainWindow):
         # 控制按钮
         button_layout = QHBoxLayout()
 
-        self.btn_load_ref = QPushButton("选择标准视频（多选）")
+        self.btn_load_ref = QPushButton("选择标准视频")
         self.btn_load_ref.setMinimumHeight(40)
 
         self.btn_start_ref = QPushButton("开始处理")
@@ -135,23 +131,18 @@ class MainWindow(QMainWindow):
 
         # 处理信息显示
         self.ref_info_text = QTextEdit()
-        self.ref_info_text.setMaximumHeight(120)
+        self.ref_info_text.setMaximumHeight(80)
         self.ref_info_text.setReadOnly(True)
         self.ref_info_text.setPlaceholderText("模板信息将在这里显示...")
-        layout.addWidget(QLabel("模板信息:"))
         layout.addWidget(self.ref_info_text)
 
         return widget
 
     def create_step2_widget(self) -> QWidget:
         """创建步骤2：评测"""
-        widget = QGroupBox("步骤2：动作评测")
+        widget = QGroupBox("步骤2：进行动作评测(达到目标自动切换)")
         layout = QVBoxLayout(widget)
-
-        # 标题说明
-        title_label = QLabel("基于生成的模板进行动作评测（达到目标自动切换）")
-        title_label.setFont(QFont("Arial", 12, QFont.Weight.Bold))
-        layout.addWidget(title_label)
+        layout.setSpacing(6)
 
         # 视频显示区域
         self.eval_video_display = VideoDisplayWidget()
@@ -168,30 +159,20 @@ class MainWindow(QMainWindow):
         self.btn_load_eval = QPushButton("选择评测视频")
         self.btn_load_eval.setMinimumHeight(40)
 
-        self.btn_start_camera = QPushButton("启用摄像头")
-        self.btn_start_camera.setMinimumHeight(40)
-
         self.btn_start_eval = QPushButton("开始评测")
         self.btn_start_eval.setMinimumHeight(40)
         self.btn_start_eval.setEnabled(False)
 
-        self.btn_stop_eval = QPushButton("停止评测")
-        self.btn_stop_eval.setMinimumHeight(40)
-        self.btn_stop_eval.setEnabled(False)
-
         button_layout.addWidget(self.btn_load_eval)
-        button_layout.addWidget(self.btn_start_camera)
         button_layout.addWidget(self.btn_start_eval)
-        button_layout.addWidget(self.btn_stop_eval)
 
         layout.addLayout(button_layout)
 
         # 评测结果显示
         self.eval_info_text = QTextEdit()
-        self.eval_info_text.setMaximumHeight(120)
+        self.eval_info_text.setMaximumHeight(80)
         self.eval_info_text.setReadOnly(True)
         self.eval_info_text.setPlaceholderText("评测信息将在这里显示...")
-        layout.addWidget(QLabel("评测信息:"))
         layout.addWidget(self.eval_info_text)
 
         return widget
@@ -220,15 +201,15 @@ class MainWindow(QMainWindow):
         self.key_actions_spin.setSpecialValueText("自动检测")
         params_layout.addWidget(self.key_actions_spin, 0, 3)
 
-        # 摄像头选择
-        params_layout.addWidget(QLabel("摄像头:"), 1, 0)
-        self.camera_combo = QComboBox()
-        self.camera_combo.addItems(["0", "1", "2"])
-        params_layout.addWidget(self.camera_combo, 1, 1)
-
-        # 使用摄像头复选框
-        self.use_webcam_cb = QCheckBox("使用摄像头实时评测")
-        params_layout.addWidget(self.use_webcam_cb, 1, 2, 1, 2)
+        # 评测来源选择
+        params_layout.addWidget(QLabel("评测来源:"), 1, 0)
+        source_layout = QHBoxLayout()
+        self.eval_source_video_rb = QRadioButton("评测视频")
+        self.eval_source_camera_rb = QRadioButton("摄像头")
+        self.eval_source_video_rb.setChecked(True)
+        source_layout.addWidget(self.eval_source_video_rb)
+        source_layout.addWidget(self.eval_source_camera_rb)
+        params_layout.addLayout(source_layout, 1, 1, 1, 3)
 
         layout.addWidget(params_group)
 
@@ -238,24 +219,21 @@ class MainWindow(QMainWindow):
         """创建底部区域"""
         widget = QWidget()
         layout = QHBoxLayout(widget)
+        layout.setSpacing(6)
 
         # 统计面板
         self.stats_panel = StatsPanel()
         layout.addWidget(self.stats_panel)
 
         # 日志区域
-        log_group = QGroupBox("运行日志")
+        log_group = QWidget()
         log_layout = QVBoxLayout(log_group)
 
         self.log_display = QTextEdit()
-        self.log_display.setMaximumHeight(150)
+        self.log_display.setMaximumHeight(120)
         self.log_display.setReadOnly(True)
+        self.log_display.append("运行日志")
         log_layout.addWidget(self.log_display)
-
-        # 清空日志按钮
-        clear_log_btn = QPushButton("清空日志")
-        clear_log_btn.clicked.connect(self.clear_log)
-        log_layout.addWidget(clear_log_btn)
 
         layout.addWidget(log_group)
 
@@ -276,12 +254,9 @@ class MainWindow(QMainWindow):
 
         # 步骤2信号
         self.btn_load_eval.clicked.connect(self.load_evaluation_video)
-        self.btn_start_camera.clicked.connect(self.setup_camera)
         self.btn_start_eval.clicked.connect(self.start_evaluation)
-        self.btn_stop_eval.clicked.connect(self.stop_evaluation)
-
-        # 摄像头复选框
-        self.use_webcam_cb.toggled.connect(self.on_webcam_toggle)
+        self.eval_source_video_rb.toggled.connect(self.on_eval_source_changed)
+        self.eval_source_camera_rb.toggled.connect(self.on_eval_source_changed)
 
     def load_reference_video(self):
         """加载标准视频（支持多选）"""
@@ -292,7 +267,7 @@ class MainWindow(QMainWindow):
             self.reference_video_paths = files
             self.btn_start_ref.setEnabled(True)
             self.add_log(f"已选择 {len(files)} 个标准视频")
-            self.statusBar().showMessage("标准视频已选择，请设置目标次数并开始处理")
+            self.add_log("下一步：设置目标次数并开始处理")
 
     def start_reference_processing(self):
         """开始处理标准视频（列表）"""
@@ -345,16 +320,13 @@ class MainWindow(QMainWindow):
         selected_n = len(getattr(self, "reference_video_paths", []))
         if selected_n == 0:
             self.add_log("已绑定目标次数，但尚未选择标准视频")
-            self.statusBar().showMessage("目标次数已确认（请先选择标准视频）")
             return
         if len(targets) != selected_n:
             self.add_log(
                 f"目标次数数量({len(targets)})与标准视频数({selected_n})不一致，已按较少的一侧对齐"
             )
-            self.statusBar().showMessage("目标次数已确认（数量不一致将截断或忽略多余）")
         else:
             self.add_log("目标次数已确认并与每个动作绑定")
-            self.statusBar().showMessage("目标次数已确认")
 
     def clear_reference(self):
         """清空标准视频"""
@@ -365,7 +337,6 @@ class MainWindow(QMainWindow):
         self.targets_edit.clear()
         self.btn_start_ref.setEnabled(False)
         self.add_log("已清空标准视频")
-        self.statusBar().showMessage("请选择标准视频")
 
     def load_evaluation_video(self):
         """加载评测视频"""
@@ -374,42 +345,35 @@ class MainWindow(QMainWindow):
         )
         if file_path:
             self.evaluation_video_path = file_path
-            self.use_webcam_cb.setChecked(False)
+            self.eval_source_video_rb.setChecked(True)
             self.update_eval_button_state()
             self.add_log(f"已选择评测视频: {file_path}")
 
-    def setup_camera(self):
-        """设置摄像头"""
-        camera_index = int(self.camera_combo.currentText())
-        self.camera_index = camera_index
-        self.use_webcam_cb.setChecked(True)
-        if hasattr(self, "evaluation_video_path"):
-            del self.evaluation_video_path
-        self.update_eval_button_state()
-        self.add_log(f"已选择摄像头 {camera_index}")
-
-    def on_webcam_toggle(self, checked):
-        """摄像头复选框切换"""
-        if checked:
-            self.btn_load_eval.setEnabled(False)
-            if not hasattr(self, "camera_index"):
-                self.camera_index = 0
-        else:
-            self.btn_load_eval.setEnabled(True)
-            if hasattr(self, "camera_index"):
-                del self.camera_index
+    def on_eval_source_changed(self):
+        """评测来源切换"""
         self.update_eval_button_state()
 
     def update_eval_button_state(self):
         """更新评测按钮状态"""
+        if self._eval_running:
+            self.btn_start_eval.setEnabled(True)
+            return
+
         has_template = (self.controller.ref_template is not None) or bool(
             self.controller.ref_templates
         )
-        has_source = hasattr(self, "evaluation_video_path") or hasattr(self, "camera_index")
+        if self.eval_source_camera_rb.isChecked():
+            has_source = True
+        else:
+            has_source = hasattr(self, "evaluation_video_path")
         self.btn_start_eval.setEnabled(has_template and has_source)
 
     def start_evaluation(self):
         """开始评测"""
+        if getattr(self, "_eval_running", False):
+            self.stop_evaluation()
+            return
+
         if (self.controller.ref_template is None) and (not self.controller.ref_templates):
             QMessageBox.warning(self, "错误", "请先处理标准视频生成模板")
             return
@@ -425,12 +389,15 @@ class MainWindow(QMainWindow):
         if targets:
             self.controller.set_action_targets(targets)
 
-        use_webcam = self.use_webcam_cb.isChecked()
-        eval_file = None if use_webcam else getattr(self, "evaluation_video_path", None)
+        use_webcam = self.eval_source_camera_rb.isChecked()
+        eval_file: str | None = None if use_webcam else getattr(self, "evaluation_video_path", None)
+        if (not use_webcam) and (not eval_file):
+            QMessageBox.warning(self, "错误", "请选择评测视频或切换到摄像头")
+            return
 
         # 开始评测
-        self.btn_start_eval.setEnabled(False)
-        self.btn_stop_eval.setEnabled(True)
+        self._eval_running = True
+        self.btn_start_eval.setText("停止评测")
         self.stats_panel.start_timing()
 
         source_info = "摄像头" if use_webcam else "视频文件"
@@ -466,15 +433,16 @@ class MainWindow(QMainWindow):
         """标准视频处理完成"""
         self.btn_start_ref.setEnabled(True)
         self.add_log("标准视频处理完成，模板已生成")
-        self.statusBar().showMessage("模板已就绪，可以开始评测")
+        self.add_log("下一步：选择评测来源并开始评测")
         self.update_eval_button_state()
 
     def on_evaluation_finished(self):
         """评测完成"""
-        self.btn_start_eval.setEnabled(True)
-        self.btn_stop_eval.setEnabled(False)
+        self._eval_running = False
+        self.btn_start_eval.setText("开始评测")
+        self.update_eval_button_state()
         self.stats_panel.stop_timing()
-        if not self.use_webcam_cb.isChecked():
+        if self.eval_source_video_rb.isChecked():
             self.add_log("视频评测完成")
 
     def add_log(self, message: str):
@@ -484,10 +452,6 @@ class MainWindow(QMainWindow):
         timestamp = datetime.now().strftime("%H:%M:%S")
         self.log_display.append(f"[{timestamp}] {message}")
 
-    def clear_log(self):
-        """清空日志"""
-        self.log_display.clear()
-
     def closeEvent(self, event):
         """关闭事件"""
         if hasattr(self, "ref_process_thread"):
@@ -495,6 +459,9 @@ class MainWindow(QMainWindow):
         if hasattr(self, "eval_process_thread"):
             self.controller.stop()
             self.eval_process_thread.wait()
+        from dual_dance_coach.view.main_window import show_home_window
+
+        show_home_window()
         event.accept()
 
 
@@ -504,7 +471,7 @@ class ReferenceProcessThread(QThread):
     frame_ready = Signal(object, object, dict)  # 修改：使用Signal
     info_ready = Signal(str)  # 修改：使用Signal
 
-    def __init__(self, controller, video_paths):
+    def __init__(self, controller: CountController, video_paths: list[str]):
         super().__init__()
         self.controller = controller
         self.video_paths = video_paths  # 列表
@@ -527,7 +494,14 @@ class EvaluationProcessThread(QThread):
     info_ready = Signal(str)  # 修改：使用Signal
     count_updated = Signal(int, int, float)  # 修改：使用Signal
 
-    def __init__(self, controller, eval_file, use_webcam, tolerance, key_actions):
+    def __init__(
+        self,
+        controller: CountController,
+        eval_file: str | None,
+        use_webcam: bool,
+        tolerance: float,
+        key_actions: int | None,
+    ):
         super().__init__()
         self.controller = controller
         self.eval_file = eval_file
@@ -543,17 +517,19 @@ class EvaluationProcessThread(QThread):
                 self.eval_file, self.use_webcam, self.tolerance, self.key_actions
             ):
                 self.info_ready.emit(info)
-                if frame is not None:
-                    # 从info中提取计数信息
-                    if "已完成:" in info:
-                        try:
-                            count_str = info.split("已完成: ")[1].split("|")[0].strip()
-                            new_count = int(count_str)
-                            if new_count != count:
-                                count = new_count
-                                self.count_updated.emit(count, 0, 0.0)
-                        except Exception as e:
-                            print(e)
-                    self.frame_ready.emit(frame, None, {"count": count})
+                if not frame:
+                    continue
+
+                # 从info中提取计数信息
+                if "已完成:" in info:
+                    try:
+                        count_str = info.split("已完成: ")[1].split("|")[0].strip()
+                        new_count = int(count_str)
+                        if new_count != count:
+                            count = new_count
+                            self.count_updated.emit(count, 0, 0.0)
+                    except Exception as e:
+                        print(e)
+                self.frame_ready.emit(frame, None, {"count": count})
         except Exception as e:
             self.info_ready.emit(f"评测失败: {e}")

@@ -62,3 +62,17 @@ python ./test/test_dance_main.py
 ```bash
 python ./test/test_count_main.py
 ```
+
+### 打包
+
+```bash
+pyinstaller --noconfirm --clean --name dual_dance_coach --windowed --add-data "blob/pose_landmarker_heavy.task;blob" src/dual_dance_coach/__main__.py
+```
+
+从环境的`Lib/site-packages`目录下复制 MediaPipe 的动态链接库文件。
+
+```bash
+cp <path-to-your-python-env>/Lib/site-packages/mediapipe dist/dual_dance_coach/_internal/mediapipe -r
+```
+
+即可运行`dist/dual_dance_coach/dual_dance_coach.exe`。

@@ -5,8 +5,7 @@ import time
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QGridLayout,
-    QGroupBox,
+    QHBoxLayout,
     QLabel,
     QLCDNumber,
     QPushButton,
@@ -21,48 +20,34 @@ class StatsPanel(QWidget):
     def __init__(self):
         super().__init__()
         self.start_time = None
+        self.current_count = 0
         self.setup_ui()
         self.setup_timer()
 
     def setup_ui(self):
         """设置UI"""
-        layout = QVBoxLayout(self)
+        layout = QHBoxLayout(self)
 
-        # 计数显示组
+        # 左侧：动作统计
         count_group = self.create_count_display()
         layout.addWidget(count_group)
 
-        # 时间统计组
+        # 右侧：时间统计
         time_group = self.create_time_stats()
         layout.addWidget(time_group)
 
-        layout.addStretch()
-
-    def create_count_display(self) -> QGroupBox:
+    def create_count_display(self) -> QWidget:
         """创建计数显示组"""
-        group = QGroupBox("动作计数")
+        group = QWidget()
         layout = QVBoxLayout(group)
+        layout.setContentsMargins(0, 0, 0, 0)
 
         # 大号LCD数字显示
         self.count_lcd = QLCDNumber(4)
-        self.count_lcd.setMinimumHeight(80)
+        self.count_lcd.setMinimumHeight(60)
         self.count_lcd.display(0)
         self.count_lcd.setSegmentStyle(QLCDNumber.SegmentStyle.Filled)
         layout.addWidget(self.count_lcd)
-
-        # 统计信息
-        stats_layout = QGridLayout()
-
-        stats_layout.addWidget(QLabel("当前计数:"), 0, 0)
-        self.current_count_label = QLabel("0")
-        self.current_count_label.setFont(QFont("Arial", 14, QFont.Weight.Bold))
-        stats_layout.addWidget(self.current_count_label, 0, 1)
-
-        stats_layout.addWidget(QLabel("完成率:"), 1, 0)
-        self.completion_label = QLabel("处理中...")
-        stats_layout.addWidget(self.completion_label, 1, 1)
-
-        layout.addLayout(stats_layout)
 
         # 重置按钮
         reset_btn = QPushButton("重置计数")
@@ -71,21 +56,30 @@ class StatsPanel(QWidget):
 
         return group
 
-    def create_time_stats(self) -> QGroupBox:
+    def create_time_stats(self) -> QWidget:
         """创建时间统计组"""
-        group = QGroupBox("时间统计")
-        layout = QGridLayout(group)
+        group = QWidget()
+        layout = QVBoxLayout(group)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        # 运行时间
-        layout.addWidget(QLabel("运行时间:"), 0, 0)
+        runtime_layout = QHBoxLayout()
+        runtime_layout.addWidget(QLabel("运行时间:"))
         self.runtime_label = QLabel("00:00:00")
         self.runtime_label.setFont(QFont("Courier", 12))
-        layout.addWidget(self.runtime_label, 0, 1)
+        runtime_layout.addWidget(self.runtime_label)
+        layout.addLayout(runtime_layout)
 
-        # 平均速率
-        layout.addWidget(QLabel("平均速率: "), 1, 0)
+        avg_rate_layout = QHBoxLayout()
+        avg_rate_layout.addWidget(QLabel("平均速率:"))
         self.avg_rate_label = QLabel("0.0 次/分")
-        layout.addWidget(self.avg_rate_label, 1, 1)
+        avg_rate_layout.addWidget(self.avg_rate_label)
+        layout.addLayout(avg_rate_layout)
+
+        completion_layout = QHBoxLayout()
+        completion_layout.addWidget(QLabel("完成率:"))
+        self.completion_label = QLabel("处理中...")
+        completion_layout.addWidget(self.completion_label)
+        layout.addLayout(completion_layout)
 
         return group
 
@@ -99,7 +93,7 @@ class StatsPanel(QWidget):
         """更新计数信息"""
         # 更新LCD显示
         self.count_lcd.display(count)
-        self.current_count_label.setText(str(count))
+        self.current_count = count
 
         # 更新完成状态
         if target and target > 0:
@@ -128,15 +122,14 @@ class StatsPanel(QWidget):
             self.runtime_label.setText(time_str)
 
             # 计算平均速率
-            current_count = int(self.current_count_label.text())
             if elapsed > 0:
-                avg_rate = (current_count / elapsed) * 60  # 次/分钟
+                avg_rate = (self.current_count / elapsed) * 60  # 次/分钟
                 self.avg_rate_label.setText(f"{avg_rate:.1f} 次/分")
 
     def reset_stats(self):
         """重置统计，清零计数"""
         self.count_lcd.display(0)
-        self.current_count_label.setText("0")
+        self.current_count = 0
         self.avg_rate_label.setText("0.0 次/分")
         self.completion_label.setText("处理中...")
         self.start_time = None

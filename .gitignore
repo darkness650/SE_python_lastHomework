@@ -3,13 +3,21 @@
 
 # IDEs
 .idea/
+.iml
 .vscode/
 
 # Python
 __pycache__/
 *.pyc
 
+# PyInstaller
+dist/
+build/
+*.spec
+
 # Project files
 .temp/
 pose_landmarker_heavy.task
 *.mp4
+blob/
+app-crash.log

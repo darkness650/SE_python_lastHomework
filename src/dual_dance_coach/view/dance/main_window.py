@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from dual_dance_coach.view.dance.controller.practice_controller import PracticeController
+from dual_dance_coach.controller.practice_controller import PracticeController
 
 
 @dataclass
@@ -256,7 +256,7 @@ class MainWindow(QMainWindow):
         作用: 若已选择参考视频，则委托控制器启动练习。
         """
         if self._controller.is_running():
-            self._controller.stop_and_finalize("已停止")
+            self._on_stop()
             return
         if not self._state.ref_video_path:
             QMessageBox.information(self, "提示", "请先加载标准舞蹈视频")
@@ -272,7 +272,7 @@ class MainWindow(QMainWindow):
 
     def _on_stop(self) -> None:
         """停止练习流程。输入/输出: 无。作用: 委托控制器停止。"""
-        self._controller.stop()
+        self._controller.stop_and_finalize("已停止")
 
     def _on_toggle_ref_pause(self) -> None:
         """切换参考预览暂停/继续（仅UI状态）。"""
@@ -383,6 +383,11 @@ class MainWindow(QMainWindow):
         作用: 确保后台线程与设备释放。
         """
         try:
+            if self._controller.is_running():
+                self._on_stop()
             self._controller.close()
         finally:
             super().closeEvent(event)
+            from dual_dance_coach.view.main_window import show_home_window
+
+            show_home_window()
