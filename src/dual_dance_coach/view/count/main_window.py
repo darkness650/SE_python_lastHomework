@@ -517,7 +517,7 @@ class EvaluationProcessThread(QThread):
                 self.eval_file, self.use_webcam, self.tolerance, self.key_actions
             ):
                 self.info_ready.emit(info)
-                if not frame:
+                if frame is None:
                     continue
 
                 # 从info中提取计数信息

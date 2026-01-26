@@ -26,7 +26,8 @@ def draw_annotations(
     angle: float | None,
 ) -> np.ndarray:
     """在帧上绘制关键点、全身骨架与角度文字（包含多关节角度）。"""
-    if landmarks is None or angle is None:
+    # 不要改成 or
+    if landmarks is None and angle is None:
         return frame
 
     vis = frame.copy()
