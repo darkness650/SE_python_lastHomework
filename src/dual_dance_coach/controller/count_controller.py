@@ -276,13 +276,18 @@ class CountController:
 
         matcher = make_matcher(active_templates[action_idx])
 
-        cap = None if eval_path is None else cv2.VideoCapture(eval_path)
-
-        # 设置高分辨率（对摄像头）
-        if cap and cap.isOpened() and use_webcam:
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-            cap.set(cv2.CAP_PROP_FPS, 30)
+        cap = None
+        # 摄像头模式
+        if use_webcam:
+            cap = cv2.VideoCapture(0)
+            if cap.isOpened():
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                cap.set(cv2.CAP_PROP_FPS, 30)
+        # 文件模式
+        else:
+            if eval_path is not None:
+                cap = cv2.VideoCapture(eval_path)
 
         # 处理FPS统计
         t0 = time.time()
