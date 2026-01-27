@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
         self.ref_progress.setValue(0)
         self.ref_progress.setTracking(True)
         self.ref_progress.setMinimumWidth(240)
-        self.btn_ref_pause = QPushButton("暂停")
+        self.btn_ref_pause = QPushButton("继续")
         self.cmb_speed = QComboBox()
         self.cmb_speed.setEditable(False)
         self.cmb_speed.setMinimumWidth(120)
@@ -220,7 +220,7 @@ class MainWindow(QMainWindow):
         self._state.ref_ready = False
         self.set_status(f"已选择标准视频：{path}", 5000)
         self._controller.load_reference(path)
-        self.btn_ref_pause.setText("暂停")
+        self.btn_ref_pause.setText("继续")
         self._controller.set_ref_preview_paused(False)
         self._controller.set_ref_preview_speed(1.0)
         self.cmb_speed.setCurrentText("1.00")
@@ -269,13 +269,14 @@ class MainWindow(QMainWindow):
             return
         if self._controller.start():
             self._set_next_step("正在检测…请保持在画面中")
+            self._on_toggle_ref_pause()
 
     def _on_stop(self) -> None:
         """停止练习流程。输入/输出: 无。作用: 委托控制器停止。"""
         self._controller.stop_and_finalize("已停止")
 
     def _on_toggle_ref_pause(self) -> None:
-        """切换参考预览暂停/继续（仅UI状态）。"""
+        """切换参考预览暂停/继续。"""
         if self.btn_ref_pause.text() == "暂停":
             self.btn_ref_pause.setText("继续")
             self._controller.set_ref_preview_paused(True)
@@ -369,11 +370,13 @@ class MainWindow(QMainWindow):
         self.ref_progress.setValue(cur)
 
     def set_running_state(self, running: bool) -> None:
-        """更新运行状态，切换开始按钮文本。"""
+        """更新运行状态，切换开始按钮文本和进度条"""
         if running:
             self.btn_start.setText("停止")
         else:
             self.btn_start.setText("开始跳舞")
+            self.ref_progress.setValue(0)
+            self.btn_ref_pause.setText("继续")
 
     def closeEvent(self, event) -> None:
         """窗口关闭钩子：释放控制器资源后再关闭。

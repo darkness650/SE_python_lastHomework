@@ -158,7 +158,7 @@ class PracticeController(QObject):
         self._cap_ref_preview: cv2.VideoCapture | None = None
         self._user_is_file: bool = False
 
-        self._ref_preview_paused: bool = False
+        self._ref_preview_paused: bool = True
         self._ref_preview_speed: float = 1.0
         self._ref_preview_time_s: float = 0.0
         self._ref_preview_duration_s: float = 0.0
@@ -188,7 +188,7 @@ class PracticeController(QObject):
             self._cap_ref_preview.release()
         self._cap_ref_preview = cv2.VideoCapture(video_path)
         self._ref_preview_time_s = 0.0
-        self._ref_preview_paused = False
+        self._ref_preview_paused = True
         self._ref_preview_speed = 1.0
         self._ref_preview_last_ts = time.perf_counter()
         if self._cap_ref_preview is not None and self._cap_ref_preview.isOpened():
@@ -347,6 +347,9 @@ class PracticeController(QObject):
 
         self._state.running = True
         self._state.start_time_s = time.perf_counter()
+        self._ref_preview_last_ts = time.perf_counter()
+        self._ref_preview_time_s = 0.0
+        self._ref_preview_paused = False
         self._score_ema = None
         self._score_sum = 0.0
         self._score_count = 0

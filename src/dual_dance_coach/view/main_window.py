@@ -100,8 +100,7 @@ class MainWindow(QMainWindow):
         if image_path and os.path.exists(image_path) and os.path.isfile(image_path):
             self._root.setStyleSheet(
                 self._root.styleSheet()
-                + f"QWidget#homeRoot {{ background-image: url('{image_path}'); "
-                "background-position: center; background-repeat: no-repeat; }}"
+                + f"QWidget#homeRoot {{ background-image: url('{image_path}'); background-position: center; background-repeat: no-repeat; }}"
             )
             return True
         return False

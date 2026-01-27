@@ -16,22 +16,59 @@ MediaPipe + PySide6 + OpenCV
   - 选择用户输入（摄像头或视频）
   - 实时输出目前做了多少个参考动作
 
-## 项目结构（视图/业务分离）
-
-这是暂时的项目结构，基本完成后可能还会调整。
+## 项目结构
 
 ```
-├───src
-│   └───dual_dance_coach
-│       ├───core    # 核心纯业务逻辑
-│       └───view    # 界面与控制器
-│           ├───count       # 健身计数相关
-│           │   ├───mvc     # 有关的业务逻辑
-│           │   └───ui      # Qt界面
-│           └───dance       # 舞蹈练习相关
-│               ├───controller      # ui的控制器
-│               └───ui              # Qt界面
-└───test    # 测试代码
+SE_python_lastHomework
+│   .gitignore
+│   pyproject.toml      # Python 项目配置文件
+│   README.md       # 项目说明文档
+│   TODO.md
+│
+├───blob            # 资源文件夹
+│       background.png      # 主界面背景图
+│       pose_landmarker_heavy.task  # MediaPipe Pose 模型文件
+│
+├───src     # 源代码文件夹
+│   └───dual_dance_coach    # 主程序包
+│       │   __init__.py
+│       │   __main__.py     # 程序入口
+│       │
+│       ├───controller      # 控制器模块
+│       │       count_controller.py     # 动作计数控制器
+│       │       practice_controller.py  # 舞蹈练习控制器
+│       │       view_protocol.py        # 舞蹈练习视图协议
+│       │       __init__.py
+│       │
+│       ├───core        # 核心逻辑模块
+│       │       motion_counter.py       # 动作计数核心逻辑
+│       │       pose_connections.py     # MediaPipe Pose 连接定义
+│       │       pose_detector.py        # MediaPipe Pose 检测封装
+│       │       reference_extractor.py  # 参考动作提取器
+│       │       scoring.py          # 舞蹈评分算法
+│       │       types.py            # 核心数据类型定义
+│       │       __init__.py
+│       │
+│       └───view        # 视图模块
+│           │   main_window.py      # 主界面
+│           │   __init__.py
+│           │
+│           ├───count       # 动作计数视图模块
+│           │       main_window.py      # 动作计数主界面
+│           │       stats_panel.py      # 统计面板
+│           │       video_widget.py     # 视频播放组件
+│           │       __init__.py
+│           │
+│           └───dance       # 舞蹈练习视图模块
+│                   main_window.py      # 舞蹈练习主界面
+│                   __init__.py
+│
+└───test
+        remove_pycache.py
+        test_count_main.py
+        test_cwd.py
+        test_dance_main.py
+        __init__.py
 ```
 
 ## 开发和测试
@@ -66,10 +103,10 @@ python ./test/test_count_main.py
 ### 打包
 
 ```bash
-pyinstaller --noconfirm --clean --name dual_dance_coach --windowed --add-data "blob/pose_landmarker_heavy.task;blob" src/dual_dance_coach/__main__.py
+pyinstaller --noconfirm --clean --name dual_dance_coach --windowed --add-data "blob/pose_landmarker_heavy.task;blob" --add-data "blob/background.png;blob" src/dual_dance_coach/__main__.py
 ```
 
-从环境的`Lib/site-packages`目录下复制 MediaPipe 的动态链接库文件。
+从环境的`Lib/site-packages`目录下复制 MediaPipe 的动态链接库文件：
 
 ```bash
 cp <path-to-your-python-env>/Lib/site-packages/mediapipe dist/dual_dance_coach/_internal/mediapipe -r
