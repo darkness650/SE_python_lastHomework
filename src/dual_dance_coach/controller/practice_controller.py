@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from typing import TypeGuard
+from typing import Optional, Tuple, TypeGuard
 
 import cv2
 import numpy as np
@@ -40,7 +40,7 @@ def _bgr_to_qpixmap(frame_bgr: np.ndarray, max_w: int, max_h: int) -> QPixmap:
     )
 
 
-def _draw_skeleton_bgr(frame_bgr: np.ndarray, landmarks_33x4: np.ndarray | None) -> np.ndarray:
+def _draw_skeleton_bgr(frame_bgr: np.ndarray, landmarks_33x4: Optional[np.ndarray]) -> np.ndarray:
     """在 BGR 帧上叠加骨架连线和关键点。
 
     输入: frame_bgr 原始图像；landmarks_33x4 为 (33,4) 或 None。
@@ -157,6 +157,18 @@ class PracticeController(QObject):
         self._cap_user: cv2.VideoCapture | None = None
         self._cap_ref_preview: cv2.VideoCapture | None = None
         self._user_is_file: bool = False
+
+        # 练习主时间轴：用于保证“处理变慢时也不会让文件视频越播越慢”
+        self._play_t0_s: float = 0.0
+        self._play_offset_s: float = 0.0
+
+        # 用户文件播放信息（用于按时间跳帧/追帧）
+        self._user_fps: float = 0.0
+        self._user_frame_count: int = 0
+        self._user_last_target_frame: int = -1
+
+        # 参考预览：练习时默认跟随主时间轴（不再每 tick 频繁 seek）
+        self._ref_follow_main_clock: bool = True
 
         self._ref_preview_paused: bool = True
         self._ref_preview_speed: float = 1.0
@@ -345,8 +357,24 @@ class PracticeController(QObject):
             self._view.show_error("打开失败", "无法打开用户输入（摄像头/视频）")
             return False
 
+        # 缓存用户文件信息（文件才有明确 fps/frame_count）
+        if self._user_is_file:
+            fps = float(self._cap_user.get(cv2.CAP_PROP_FPS) or 0.0)
+            self._user_fps = fps if fps > 1e-6 else 25.0
+            self._user_frame_count = int(self._cap_user.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+            self._user_last_target_frame = -1
+        else:
+            self._user_fps = 0.0
+            self._user_frame_count = 0
+            self._user_last_target_frame = -1
+
         self._state.running = True
         self._state.start_time_s = time.perf_counter()
+
+        # 主时间轴从 0 开始（用于对齐参考/用户）
+        self._play_t0_s = time.perf_counter()
+        self._play_offset_s = 0.0
+
         self._ref_preview_last_ts = time.perf_counter()
         self._ref_preview_time_s = 0.0
         self._ref_preview_paused = False
@@ -368,72 +396,121 @@ class PracticeController(QObject):
             self._cap_user.release()
             self._cap_user = None
 
+        self._user_last_target_frame = -1
+
         # 不关闭参考预览cap（切换参考时会释放）
 
-    def _on_tick(self) -> None:
-        """主循环处理：同步时间、取参考、检测用户、评分、更新预览。
+    def _read_user_frame_aligned(self, t_s: float) -> Tuple[bool, Optional[np.ndarray]]:
+        """按时间轴读取用户帧。
 
-        输入/输出: 无。
-        作用: 每帧按时间对齐参考，绘制骨架，计算分数并更新视图。
+        - 摄像头：直接 read()
+        - 文件：按 t_s 计算目标帧号，必要时 seek 或丢帧追赶，避免“处理慢 => 视频播放慢”。
         """
+        if self._cap_user is None:
+            return False, None
+
+        if not self._user_is_file:
+            ok, frame = self._cap_user.read()
+            return ok, frame
+
+        # 文件模式：按主时间轴对齐
+        fps = self._user_fps if self._user_fps > 1e-6 else 25.0
+        target_frame = int(round(t_s * fps))
+        if self._user_frame_count > 0:
+            target_frame = min(max(0, target_frame), self._user_frame_count - 1)
+        else:
+            target_frame = max(0, target_frame)
+
+        # 当前帧号（OpenCV 通常指向“下一帧”的索引）
+        cur_frame = int(self._cap_user.get(cv2.CAP_PROP_POS_FRAMES) or 0)
+
+        # 如果落后太多，直接 seek；否则用丢帧追赶，减少频繁 seek 带来的开销
+        diff = target_frame - cur_frame
+        if diff < -2 or diff > 5:
+            self._cap_user.set(cv2.CAP_PROP_POS_FRAMES, float(target_frame))
+        else:
+            # 追赶到 target_frame 附近
+            steps = max(0, diff)
+            for _ in range(steps):
+                ok, _ = self._cap_user.read()
+                if not ok:
+                    return False, None
+
+        ok, frame = self._cap_user.read()
+        if not ok:
+            return False, None
+        self._user_last_target_frame = target_frame
+        return True, frame
+
+    def _on_tick(self) -> None:
+        """主循环处理：同步时间、取参考、检测用户、评分、更新预览。"""
         if not self._state.running:
             return
 
-        # 0) 获取用户画面（优先读帧，保证 t_s 与“当前帧”一致）
-        if self._cap_user is None:
-            return
-        ok, user_frame = self._cap_user.read()
-        if not ok:
+        # 1) 统一时间基准：始终使用单调时钟推进
+        t_s = (time.perf_counter() - self._play_t0_s) + self._play_offset_s
+        if t_s < 0:
+            t_s = 0.0
+
+        # 2) 获取用户画面（文件按时间对齐，避免“处理慢 => 播放慢”）
+        ok, user_frame = self._read_user_frame_aligned(t_s)
+        if not ok or user_frame is None:
             self.stop()
             self._view.set_status("用户输入结束/读取失败，已停止", 5000)
             return
 
-        # 1) 时间基准：文件用视频时间（读帧后再取 POS_MSEC 更准），摄像头用 perf_counter
-        if self._user_is_file:
-            t_s = float(self._cap_user.get(cv2.CAP_PROP_POS_MSEC) or 0.0) / 1000.0
-        else:
-            t_s = time.perf_counter() - self._state.start_time_s
-
-        # 2) 取参考姿态（用于评分和参考画面叠加）
+        # 3) 取参考姿态（评分对齐主时间轴；预览是否跟随由 _ref_follow_main_clock 控制）
         ref_lm = None
         ref_t_s = t_s
-        if self._ref_preview_duration_s > 0:
+        if not self._ref_follow_main_clock and self._ref_preview_duration_s > 0:
             ref_t_s = self._ref_preview_time_s
         if self._state.reference_sequence is not None:
             ref_lm = find_reference_by_time(self._state.reference_sequence, ref_t_s)
 
-        # 3) 刷新参考视频预览（按独立播放进度，可暂停/倍速）
+        # 4) 刷新参考视频预览
         if self._cap_ref_preview is not None and self._cap_ref_preview.isOpened():
-            now = time.perf_counter()
-            dt = max(0.0, now - self._ref_preview_last_ts)
-            self._ref_preview_last_ts = now
-            if not self._ref_preview_paused:
-                self._ref_preview_time_s += dt * self._ref_preview_speed
+            if self._ref_follow_main_clock:
+                # 跟随主时钟：只在“明显不同步”时 seek，正常情况下顺序 read()
+                self._ref_preview_time_s = t_s * self._ref_preview_speed
                 if self._ref_preview_duration_s > 0:
-                    self._ref_preview_time_s = min(
-                        self._ref_preview_time_s, self._ref_preview_duration_s
-                    )
+                    self._ref_preview_time_s = min(self._ref_preview_time_s, self._ref_preview_duration_s)
 
-            self._cap_ref_preview.set(cv2.CAP_PROP_POS_MSEC, self._ref_preview_time_s * 1000.0)
-            ok2, f = self._cap_ref_preview.read()
+                cur_ms = int(self._cap_ref_preview.get(cv2.CAP_PROP_POS_MSEC) or 0)
+                desired_ms = int(self._ref_preview_time_s * 1000)
+                if abs(desired_ms - cur_ms) > 200:
+                    self._cap_ref_preview.set(cv2.CAP_PROP_POS_MSEC, float(desired_ms))
+                ok2, f = self._cap_ref_preview.read()
+            else:
+                # 独立预览：按真实时间推进（保留原有行为）
+                now = time.perf_counter()
+                dt = max(0.0, now - self._ref_preview_last_ts)
+                self._ref_preview_last_ts = now
+                if not self._ref_preview_paused:
+                    self._ref_preview_time_s += dt * self._ref_preview_speed
+                    if self._ref_preview_duration_s > 0:
+                        self._ref_preview_time_s = min(self._ref_preview_time_s, self._ref_preview_duration_s)
+
+                self._cap_ref_preview.set(cv2.CAP_PROP_POS_MSEC, self._ref_preview_time_s * 1000.0)
+                ok2, f = self._cap_ref_preview.read()
+
             if ok2:
                 f2 = _draw_skeleton_bgr(f, ref_lm)
                 self._view.set_ref_pixmap(_bgr_to_qpixmap(f2, 560, 420))
 
             if self._ref_preview_duration_s > 0:
-                cur_ms = int(self._ref_preview_time_s * 1000)
+                cur_ms2 = int(self._ref_preview_time_s * 1000)
                 total_ms = int(self._ref_preview_duration_s * 1000)
-                self._view.set_reference_progress(cur_ms, total_ms)
+                self._view.set_reference_progress(cur_ms2, total_ms)
 
             if (
                 self._ref_preview_duration_s > 0
                 and self._ref_preview_time_s >= self._ref_preview_duration_s
-                and not self._ref_preview_paused
+                and (self._ref_follow_main_clock or not self._ref_preview_paused)
             ):
                 self.stop_and_finalize("标准视频播放结束，已停止")
                 return
 
-        # 4) 姿态检测 + 评分
+        # 5) 姿态检测 + 评分
         user_lm = self._detector.detect_landmarks(user_frame)
         score, _ = compare_angles(user_lm, ref_lm)
         if self._state.reference_sequence is not None:

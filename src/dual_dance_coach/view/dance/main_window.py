@@ -314,9 +314,11 @@ class MainWindow(QMainWindow):
         self._update_start_enabled()
 
     def _set_next_step(self, message: str) -> None:
+        """更新下一步提示标签。输入: 文本。输出: 无。"""
         self.lbl_next_step.setText(f"下一步：{message}")
 
     def _update_start_enabled(self) -> None:
+        """根据当前状态更新“开始跳舞”按钮的可用性。"""
         ready = bool(self._state.ref_video_path) and self._state.ref_ready
         if self.radio_user.isChecked():
             ready = ready and bool(self._state.user_video_path)
