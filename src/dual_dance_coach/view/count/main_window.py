@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from dual_dance_coach.controller.count_controller import CountController
 from dual_dance_coach.view.count.stats_panel import StatsPanel
 from dual_dance_coach.view.count.video_widget import VideoDisplayWidget
+from dual_dance_coach.view.resources import resolve_blob_path
 
 
 class MainWindow(QMainWindow):
@@ -41,6 +42,16 @@ class MainWindow(QMainWindow):
 
         # 创建中央部件
         central_widget = QWidget()
+        central_widget.setObjectName("centralWidget")
+
+        # 应用背景图（找不到文件时静默回退）
+        bg_path = resolve_blob_path("countBG.png")
+        if bg_path.exists() and bg_path.is_file():
+            central_widget.setStyleSheet(
+                central_widget.styleSheet()
+                + "QWidget { background-color: transparent; } "
+                + f"QWidget#centralWidget {{ background-image: url({bg_path.as_posix()}); background-repeat: no-repeat; background-position: center; }}"
+            )
         self.setCentralWidget(central_widget)
 
         # 主布局
@@ -65,6 +76,7 @@ class MainWindow(QMainWindow):
     def create_workflow_area(self) -> QWidget:
         """创建工作流程区域"""
         widget = QWidget()
+
         layout = QHBoxLayout(widget)
 
         # 步骤1：标准视频处理

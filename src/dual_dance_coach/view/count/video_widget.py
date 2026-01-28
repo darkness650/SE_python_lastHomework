@@ -29,6 +29,7 @@ class VideoDisplayWidget(QWidget):
                 background-color: #f5f5f5;
                 border-radius: 8px;
             }
+            QWidget { background-color: transparent; }
         """)
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.video_label.setText("等待视频输入...")

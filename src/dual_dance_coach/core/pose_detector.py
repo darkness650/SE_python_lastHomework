@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pathlib import Path
 
 import cv2
 import mediapipe as mp
@@ -7,24 +6,10 @@ import numpy as np
 from mediapipe.tasks import python as mp_tasks
 from mediapipe.tasks.python import vision
 
-MODEL_FILENAME = "pose_landmarker_heavy.task"
-
-
-def _resolve_model_path() -> Path:
-    """依次在当前工作目录、项目根目录、安装后的 site-packages/blob 里查找模型文件。"""
-    candidates = [
-        Path.cwd() / "blob" / MODEL_FILENAME,
-        Path(__file__).resolve().parents[3] / "blob" / MODEL_FILENAME,
-        Path(__file__).resolve().parents[2] / "blob" / MODEL_FILENAME,
-    ]
-    for path in candidates:
-        if path.exists():
-            return path
-    return candidates[0]
-
+from dual_dance_coach.view.resources import resolve_blob_path
 
 # mediapipe 模型文件路径
-MODEL_PATH = _resolve_model_path()
+MODEL_PATH = resolve_blob_path("pose_landmarker_heavy.task")
 
 
 @dataclass(frozen=True)

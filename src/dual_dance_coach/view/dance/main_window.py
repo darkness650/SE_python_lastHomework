@@ -73,6 +73,7 @@ class MainWindow(QMainWindow):
 
         # 左侧：标准视频控制
         left_box = QWidget(top_bar)
+        left_box.setStyleSheet("QWidget { background-color: transparent; }")
         left_layout = QHBoxLayout(left_box)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(12)
@@ -102,6 +103,7 @@ class MainWindow(QMainWindow):
 
         # 中间：开始按钮
         center_box = QWidget(top_bar)
+        center_box.setStyleSheet("QWidget { background-color: transparent; }")
         center_layout = QHBoxLayout(center_box)
         center_layout.setContentsMargins(0, 0, 0, 0)
         center_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -115,6 +117,7 @@ class MainWindow(QMainWindow):
 
         # 右侧：用户视频控制
         right_box = QWidget(top_bar)
+        right_box.setStyleSheet("QWidget { background-color: transparent; }")
         right_layout = QHBoxLayout(right_box)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(12)
@@ -165,6 +168,7 @@ class MainWindow(QMainWindow):
         self.lbl_next_step.setWordWrap(True)
 
         score_box = QWidget(bottom_bar)
+        score_box.setStyleSheet("QWidget { background-color: transparent; }")
         score_layout = QVBoxLayout(score_box)
         score_layout.setContentsMargins(0, 0, 0, 0)
         score_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)

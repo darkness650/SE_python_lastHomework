@@ -103,7 +103,7 @@ python ./test/test_count_main.py
 ### 打包
 
 ```bash
-pyinstaller --noconfirm --clean --name dual_dance_coach --windowed --add-data "blob/pose_landmarker_heavy.task;blob" --add-data "blob/background.png;blob" src/dual_dance_coach/__main__.py
+pyinstaller --noconfirm --clean --name dual_dance_coach --windowed --add-data "blob/pose_landmarker_heavy.task;blob" --add-data "blob/background.png;blob" --add-data "blob/countBG.png;blob" --add-data "blob/danceBG.png;blob" src/dual_dance_coach/__main__.py
 ```
 
 从环境的`Lib/site-packages`目录下复制 MediaPipe 的动态链接库文件：

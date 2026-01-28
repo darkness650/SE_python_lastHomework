@@ -4,13 +4,9 @@ These helpers are intentionally simple and avoid Qt's .qrc system so the app
 can be run both from source and from an installed package.
 """
 
-from __future__ import annotations
-
-from functools import lru_cache
 from pathlib import Path
 
 
-@lru_cache(maxsize=None)
 def resolve_blob_path(filename: str) -> Path:
     """Resolve a file under the project's ``blob/`` folder.
 

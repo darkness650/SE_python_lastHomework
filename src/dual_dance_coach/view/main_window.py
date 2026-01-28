@@ -3,27 +3,12 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QMainWindow, QPushButton, QVBoxLayout, QWidget
 
+from dual_dance_coach.view.resources import resolve_blob_path
+
 _home_window_ref = None
 
-
-BACKGROUND_IMAGE = "background.png"
-
-
-def _resolve_model_path() -> Path:
-    """依次在当前工作目录、项目根目录、安装后的 site-packages/blob 里查找图片文件。"""
-    candidates = [
-        Path.cwd() / "blob" / BACKGROUND_IMAGE,
-        Path(__file__).resolve().parents[3] / "blob" / BACKGROUND_IMAGE,
-        Path(__file__).resolve().parents[2] / "blob" / BACKGROUND_IMAGE,
-    ]
-    for path in candidates:
-        if path.exists():
-            return path
-    return candidates[0]
-
-
 # 背景图路径
-BACKGROUND_IMAGE_PATH = _resolve_model_path()
+BACKGROUND_IMAGE_PATH = resolve_blob_path("background.png")
 
 
 def show_home_window() -> "MainWindow":
