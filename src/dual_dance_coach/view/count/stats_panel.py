@@ -89,7 +89,7 @@ class StatsPanel(QWidget):
         self.update_timer.timeout.connect(self.update_runtime)
         self.update_timer.start(1000)  # 每秒更新
 
-    def update_count(self, count: int, target: int = 0, rate: float = 0):
+    def update_count(self, count: int, target: int = 0):
         """更新计数信息"""
         # 更新LCD显示
         self.count_lcd.display(count)

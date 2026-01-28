@@ -492,7 +492,7 @@ class EvaluationProcessThread(QThread):
 
     frame_ready = Signal(object, object, dict)  # 修改：使用Signal
     info_ready = Signal(str)  # 修改：使用Signal
-    count_updated = Signal(int, int, float)  # 修改：使用Signal
+    count_updated = Signal(int, int)  # 修改：使用Signal
 
     def __init__(
         self,
@@ -520,14 +520,18 @@ class EvaluationProcessThread(QThread):
                 if frame is None:
                     continue
 
+                # 动作 2/2 | 目标:10 | 模板进度: 0/60 | 已完成: 10 | 匹配: ✓ | 前瞻跳过:0 | 处理FPS:8.7
                 # 从info中提取计数信息
                 if "已完成:" in info:
                     try:
                         count_str = info.split("已完成: ")[1].split("|")[0].strip()
                         new_count = int(count_str)
-                        if new_count != count:
-                            count = new_count
-                            self.count_updated.emit(count, 0, 0.0)
+                        if "目标" in info:
+                            target_str = info.split("目标:")[1].split("|")[0].strip()
+                            target = int(target_str)
+                            if new_count != count:
+                                count = new_count
+                                self.count_updated.emit(count, target)
                     except Exception as e:
                         print(e)
                 self.frame_ready.emit(frame, None, {"count": count})
