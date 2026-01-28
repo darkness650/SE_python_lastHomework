@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from dual_dance_coach.controller.practice_controller import PracticeController
+from dual_dance_coach.view.resources import resolve_blob_path
 
 
 @dataclass
@@ -54,7 +55,16 @@ class MainWindow(QMainWindow):
         作用: 初始化按钮、标签、布局与状态栏。
         """
         root = QWidget(self)
+        root.setObjectName("danceRoot")
         self.setCentralWidget(root)
+
+        # 应用背景图（找不到文件时静默回退）
+        bg_path = resolve_blob_path("danceBG.png")
+        if bg_path.exists() and bg_path.is_file():
+            root.setStyleSheet(
+                root.styleSheet()
+                + f"QWidget#danceRoot {{ background-image: url('{bg_path.as_posix()}'); background-position: center; background-repeat: no-repeat; }}"
+            )
 
         # ===== 顶部控制栏 =====
         top_bar = QGroupBox("控制栏")
@@ -129,6 +139,7 @@ class MainWindow(QMainWindow):
 
         # ===== 中间预览区 =====
         middle_box = QWidget(root)
+        middle_box.setObjectName("middleBox")
         middle_layout = QHBoxLayout(middle_box)
         middle_layout.setContentsMargins(0, 0, 0, 0)
         middle_layout.setSpacing(24)
@@ -184,6 +195,13 @@ class MainWindow(QMainWindow):
         layout.addWidget(top_bar)
         layout.addWidget(middle_box, stretch=1)
         layout.addWidget(bottom_bar)
+
+        # 让主要容器透明，使背景可见
+        root.setStyleSheet(
+            root.styleSheet()
+            + "QWidget#danceRoot { background-color: transparent; }"
+            + "QGroupBox, QWidget#middleBox { background-color: transparent; }"
+        )
 
     def _wire_events(self) -> None:
         """将控件事件连接到相应的槽函数。
